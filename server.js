@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY, order_id INTEGER
 CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), product_id INTEGER REFERENCES products(id), rating INTEGER NOT NULL, comment TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT NULL, discount REAL NOT NULL, active INTEGER NOT NULL DEFAULT 1, uses INTEGER NOT NULL DEFAULT 0);
 `);
+const orderColumns=db.prepare('PRAGMA table_info(orders)').all().map(column=>column.name);
+if(!orderColumns.includes('phone')) db.exec('ALTER TABLE orders ADD COLUMN phone TEXT');
 const categories = [
   ['Home & Living','home','⌂'], ['Laptop Accessories ','Laptop Accessories','◉'], ['fashion','fashion','◇'], ['watch','watch','✳'], ['Kitchen','kitchen','♨']
 ];
@@ -90,13 +92,13 @@ app.get('/api/orders',auth,(req,res)=>{
   res.json(rows.map(o=>({...o,items:db.prepare('SELECT * FROM order_items WHERE order_id=?').all(o.id)})));
 });
 app.post('/api/orders',auth,(req,res)=>{
-  const {items,name,address,paymentMethod,coupon}=req.body||{};
-  if (!Array.isArray(items)||!items.length||!name||!address||!paymentMethod) return res.status(400).json({error:'Complete your delivery and payment details.'});
+  const {items,name,address,phone,paymentMethod,coupon}=req.body||{};
+  if (!Array.isArray(items)||!items.length||!name||!address||!phone||!paymentMethod) return res.status(400).json({error:'Complete your delivery and payment details.'});
   const create=db.transaction(()=>{
     let total=0, selected=[];
     for(const item of items){const p=db.prepare('SELECT * FROM products WHERE id=?').get(Number(item.id)); const qty=Number(item.quantity); if(!p||!Number.isInteger(qty)||qty<1||qty>p.stock) throw new Error(`${p?.name||'A product'} does not have enough stock.`); total+=p.price*qty; selected.push({p,qty});}
     if(coupon){const valid=db.prepare('SELECT * FROM coupons WHERE upper(code)=upper(?) AND active=1').get(coupon);if(!valid)throw new Error('That coupon is no longer active.');total=total*(1-valid.discount/100);db.prepare('UPDATE coupons SET uses=uses+1 WHERE id=?').run(valid.id);}
-    const o=db.prepare('INSERT INTO orders(user_id,total,customer_name,address,payment_method) VALUES(?,?,?,?,?)').run(req.user.id,total,name,address,paymentMethod);
+    const o=db.prepare('INSERT INTO orders(user_id,total,customer_name,address,phone,payment_method) VALUES(?,?,?,?,?)').run(req.user.id,total,name,address,paymentMethod);
     for(const {p,qty} of selected){db.prepare('INSERT INTO order_items(order_id,product_id,name,price,quantity) VALUES(?,?,?,?,?)').run(o.lastInsertRowid,p.id,p.name,p.price,qty);db.prepare('UPDATE products SET stock=stock-? WHERE id=?').run(qty,p.id);}
     return Number(o.lastInsertRowid);
   });
