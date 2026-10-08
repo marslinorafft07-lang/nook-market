@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT
 `);
 const orderColumns=db.prepare('PRAGMA table_info(orders)').all().map(column=>column.name);
 if(!orderColumns.includes('phone')) db.exec('ALTER TABLE orders ADD COLUMN phone TEXT');
+const productColumns=db.prepare('PRAGMA table_info(products)').all().map(column=>column.name);
+if(!productColumns.includes('name_ar')) db.exec('ALTER TABLE products ADD COLUMN name_ar TEXT');
+if(!productColumns.includes('description_ar')) db.exec('ALTER TABLE products ADD COLUMN description_ar TEXT');
+const categoryColumns=db.prepare('PRAGMA table_info(categories)').all().map(column=>column.name);
+if(!categoryColumns.includes('name_ar')) db.exec('ALTER TABLE categories ADD COLUMN name_ar TEXT');
 const categories = [
   ['Home & Living','home','⌂'], ['Laptop Accessories ','Laptop Accessories','◉'], ['fashion','fashion','◇'], ['watch','watch','✳'], ['Audio & Headphones','Audio & Headphones','♨']
 ];
@@ -109,8 +114,8 @@ app.post('/api/reviews',auth,(req,res)=>{const {productId,rating,comment}=req.bo
 app.get('/api/admin/analytics',auth,admin,(req,res)=>{
   res.json({revenue:db.prepare("SELECT COALESCE(SUM(total),0) n FROM orders WHERE status!='cancelled'").get().n,orders:db.prepare('SELECT COUNT(*) n FROM orders').get().n,products:db.prepare('SELECT COUNT(*) n FROM products').get().n,customers:db.prepare("SELECT COUNT(*) n FROM users WHERE role='customer'").get().n,recent:db.prepare('SELECT o.*,u.name FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 6').all()});
 });
-app.post('/api/admin/products',auth,admin,(req,res)=>{const {name,category_id,price,compare_price,description,image,stock}=req.body;try{const result=db.prepare('INSERT INTO products(name,category_id,price,compare_price,description,image,stock) VALUES(?,?,?,?,?,?,?)').run(name,category_id,price,compare_price||null,description,image,stock);res.status(201).json({id:result.lastInsertRowid});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
-app.put('/api/admin/products/:id',auth,admin,(req,res)=>{const {name,category_id,price,compare_price,description,image,stock}=req.body;try{db.prepare('UPDATE products SET name=?,category_id=?,price=?,compare_price=?,description=?,image=?,stock=? WHERE id=?').run(name,category_id,price,compare_price||null,description,image,stock,req.params.id);res.json({ok:true});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
+app.post('/api/admin/products',auth,admin,(req,res)=>{const {name,name_ar,category_id,price,compare_price,description,description_ar,image,stock}=req.body;try{const result=db.prepare('INSERT INTO products(name,name_ar,category_id,price,compare_price,description,description_ar,image,stock) VALUES(?,?,?,?,?,?,?,?,?)').run(name,name_ar,category_id,price,compare_price||null,description,description_ar,image,stock);res.status(201).json({id:result.lastInsertRowid});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
+app.put('/api/admin/products/:id',auth,admin,(req,res)=>{const {name,name_ar,category_id,price,compare_price,description,description_ar,image,stock}=req.body;try{db.prepare('UPDATE products SET name=?,name_ar=?,category_id=?,price=?,compare_price=?,description=?,description_ar=?,image=?,stock=? WHERE id=?').run(name,name_ar,category_id,price,compare_price||null,description,description_ar,image,stock,req.params.id);res.json({ok:true});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
 app.delete('/api/admin/products/:id',auth,admin,(req,res)=>{db.prepare('DELETE FROM products WHERE id=?').run(req.params.id);res.json({ok:true});});
 app.post('/api/admin/categories',auth,admin,(req,res)=>{const {name,icon='✳'}=req.body;try{const slug=name.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');db.prepare('INSERT INTO categories(name,slug,icon) VALUES(?,?,?)').run(name,slug,icon);res.json({ok:true});}catch(e){res.status(400).json({error:'Category name already exists.'});}});
 app.post('/api/admin/coupons',auth,admin,(req,res)=>{const {code,discount}=req.body;try{db.prepare('INSERT INTO coupons(code,discount) VALUES(?,?)').run(code.toUpperCase(),discount);res.json({ok:true});}catch(e){res.status(400).json({error:'Coupon code already exists.'});}});
