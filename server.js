@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT
 const orderColumns=db.prepare('PRAGMA table_info(orders)').all().map(column=>column.name);
 if(!orderColumns.includes('phone')) db.exec('ALTER TABLE orders ADD COLUMN phone TEXT');
 const categories = [
-  ['Home & Living','home','⌂'], ['Laptop Accessories ','Laptop Accessories','◉'], ['fashion','fashion','◇'], ['watch','watch','✳'], ['Kitchen','kitchen','♨']
+  ['Home & Living','home','⌂'], ['Laptop Accessories ','Laptop Accessories','◉'], ['fashion','fashion','◇'], ['watch','watch','✳'], ['Audio & Headphones','Audio & Headphones','♨']
 ];
 const addCat = db.prepare('INSERT OR IGNORE INTO categories(name,slug,icon) VALUES(?,?,?)');
 categories.forEach(c => addCat.run(...c));
@@ -34,7 +34,7 @@ const seed = [
   ['2pcs MINI Laptop Stand - Adjustable Notebook Holder Computer Holder Radiator Folding Portable Base Heightening Stand','Laptop Accessories',179,250,'A comfortable and adjustable laptop stand for improved ergonomics.','https://img.kwcdn.com/product/fancy/bd52dda1-057c-4a04-8eaa-583c497a281d.jpg?imageView2/2/w/800/q/70/format/avif',12,1],
   ['1 8-In-1 USB C Hub with Audio Jack | Compatible with Tablets, USB Powered, 5V Operating Voltage','Laptop Accessories',300,500,'A versatile USB C hub with audio jack, perfect for connecting to various devices.','https://img.kwcdn.com/product/fancy/3de155cc-e1a6-4e5f-9e69-9fe62ad372b4.jpg?imageView2/2/w/800/q/70/format/avif',42,1],
   ['','watch',219,350,'Notes of cedar, bergamot and a little quiet. Hand-poured soy wax, 45-hour burn.','https://img.kwcdn.com/product/fancy/636df504-3ee7-411c-970c-d984696e59b2.jpg?imageView2/2/w/1300/q/90/format/avif',27,1],
-  ['Stack Stoneware Set','kitchen',64,null,'Four thoughtfully shaped stoneware mugs in a soft, speckled glaze. Dishwasher safe.','https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85',9,1],
+  ['Stack Stoneware Set','Audio & Headphones',64,null,'Four thoughtfully shaped stoneware mugs in a soft, speckled glaze. Dishwasher safe.','https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85',9,1],
   ['Soft Form Lounge Chair','home',445,399,'An inviting silhouette with a solid ash frame and naturally textured upholstery.','https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=900&q=85',5,0],
   ['Pocket Film Camera','Laptop Accessories',79,null,'Bring the happy accidents back. Simple controls, built-in flash, instant good memories.','https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=85',14,0],
   ['Linen Weekend Shirt','fashion',85,105,'Relaxed, breathable European flax linen. An easy layer, made to get better with time.','https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=900&q=85',22,0],
