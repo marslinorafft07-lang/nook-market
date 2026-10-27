@@ -141,7 +141,7 @@ app.post('/api/orders/:id/cancel',auth,(req,res)=>{
 app.post('/api/orders/:id/payment-proof',auth,(req,res)=>{
   const order=db.prepare('SELECT id,status,payment_method,payment_proof FROM orders WHERE id=? AND user_id=?').get(Number(req.params.id),req.user.id);
   if(!order)return res.status(404).json({error:'Order not found.'});
-  if(order.status!=='pending'||!['InstaPay','إنستاباي'].includes(order.payment_method))return res.status(400).json({error:'A transfer screenshot can only be added to a pending InstaPay order.'});
+  if(order.status!=='pending'||!['InstaPay','إنستاباي','Vodafone Cash','فودافون كاش'].includes(order.payment_method))return res.status(400).json({error:'A transfer screenshot can only be added to a pending bank or wallet transfer order.'});
   const {paymentProof}=req.body||{};
   const match=typeof paymentProof==='string'&&paymentProof.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
   if(!match)return res.status(400).json({error:'Choose a PNG, JPG or WEBP transfer screenshot.'});
@@ -160,11 +160,11 @@ app.post('/api/orders/:id/payment-proof',auth,(req,res)=>{
 app.post('/api/orders',auth,(req,res)=>{
   const {items,name,address,phone,paymentMethod,coupon,paymentProof,governorateId,districtId,localityId,localityManual}=req.body||{};
   const governorate=governoratesById.get(governorateId),district=districtsById.get(districtId),locality=localitiesById.get(localityId),manualLocality=localityId==='__manual__'&&typeof localityManual==='string'?localityManual.trim():'';
-  if (!Array.isArray(items)||!items.length||!name||!address||!phone||!governorate||!district||district.parentId!==governorate.id||!(locality?.parentId===district.id||(localityId==='__manual__'&&manualLocality.length>=2))||!['Cash on delivery','InstaPay'].includes(paymentMethod)) return res.status(400).json({error:'Complete your delivery and payment details.'});
+  if (!Array.isArray(items)||!items.length||!name||!address||!phone||!governorate||!district||district.parentId!==governorate.id||!(locality?.parentId===district.id||(localityId==='__manual__'&&manualLocality.length>=2))||!['Cash on delivery','InstaPay','Vodafone Cash'].includes(paymentMethod)) return res.status(400).json({error:'Complete your delivery and payment details.'});
   const shippingFee=governorate.shippingFee;
-  if(paymentMethod==='InstaPay'&&!paymentProof)return res.status(400).json({error:'Upload your InstaPay transfer screenshot.'});
+  if(['InstaPay','Vodafone Cash'].includes(paymentMethod)&&!paymentProof)return res.status(400).json({error:'Upload your transfer screenshot.'});
   let proofFile=null;
-  if(paymentMethod==='InstaPay'){
+  if(['InstaPay','Vodafone Cash'].includes(paymentMethod)){
     const match=typeof paymentProof==='string'&&paymentProof.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
     if(!match)return res.status(400).json({error:'Choose a PNG, JPG or WEBP transfer screenshot.'});
     const image=Buffer.from(match[2],'base64');
