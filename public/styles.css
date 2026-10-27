@@ -7,3 +7,75 @@
 
 .discount-total span:last-child{color:var(--green);font-weight:700}
 .payment-note{margin:0;padding:15px;background:#f0f3ed;border:1px solid #dfe7df;border-radius:5px}.payment-instructions{display:grid;gap:13px}.payment-brand{display:flex;align-items:center;gap:11px}.payment-brand>div{display:grid;gap:3px}.payment-brand strong{font-size:14px}.payment-brand small{font-size:11px;color:var(--muted)}.payment-brand-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:#e6eee8;color:var(--green)}.payment-brand-icon.wallet{background:#e5edf1;color:#b32635}.payment-brand-icon.instapay{background:#e4f1eb;color:#087c52;font-weight:800}.payment-number-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:4px}.payment-number-row>span{font-size:11px;color:var(--muted);margin-right:auto}.payment-number-row strong{font-size:17px;letter-spacing:.04em;color:var(--ink)}.payment-number-row .small-button{padding:5px 8px;background:#edf2ed;border-radius:3px;color:var(--green);font-weight:700}.payment-instructions>.button{justify-self:start}.review-payment{margin:16px 0;padding:15px;background:#f0f3ed;border:1px solid #dfe7df;border-radius:5px}.review-payment p{margin:2px 0;color:var(--muted);font-size:12px}
+/* Colorful Nook refresh: brighter accents, softer cards and a more inviting shop. */
+:root{--ink:#20302d;--muted:#737d79;--paper:#fffdf9;--white:#fff;--green:#176b57;--green2:#e5f2ec;--line:#e7e8e4;--sand:#fff0dc;--gold:#d79422;--coral:#ef5b58;--blue:#4e8bc7;--violet:#7763b5}
+body{background:linear-gradient(180deg,#fffdf9 0,#fff 470px);color:var(--ink)}
+.announcement{height:36px;background:linear-gradient(90deg,#176b57 0%,#287c72 46%,#4e8bc7 100%);font-size:11px;font-weight:600;color:#fff}
+.brand{font-size:23px;letter-spacing:-.9px}
+.brand-mark{background:linear-gradient(145deg,#d5f0e3,#ffe1c6);color:#176b57;box-shadow:0 5px 14px #2b61451b}
+.search{border-radius:14px;border-color:#e3e8e2;box-shadow:0 5px 18px #253c2a0a;transition:.2s}
+.search:focus-within{border-color:#67a78c;box-shadow:0 0 0 4px #176b5715}
+.category-nav{height:50px;gap:12px;background:#fff;border-color:#ecede9}
+.category-nav button{padding:10px 16px;border-radius:30px;color:#5e6a65;font-weight:600;transition:.18s}
+.category-nav button:hover,.category-nav button.active{background:#e8f4ed;color:#176b57}
+.icon-button{transition:color .18s,transform .18s}
+.icon-button:hover{color:var(--coral);transform:translateY(-1px)}
+.icon-button i{background:var(--coral);box-shadow:0 3px 8px #ef5b5840}
+.hero{margin-top:24px;height:420px}
+.hero-box{border-radius:22px;background:linear-gradient(115deg,#f6d9b7 0%,#f6e4cb 43%,#d5e8df 100%);box-shadow:0 18px 42px #533b2014}
+.hero-image{border-radius:0 22px 22px 0}
+.hero-copy{padding-left:5.2%}
+.eyebrow{color:#c35e48}
+.hero h1{color:#173e35}
+.hero p{color:#576d64}
+.button{border-radius:10px;background:linear-gradient(135deg,#176b57,#25866c);box-shadow:0 8px 18px #176b5728}
+.button:hover{background:linear-gradient(135deg,#125440,#176b57);box-shadow:0 10px 22px #176b5738}
+.section{margin-top:74px}
+.section-heading h2,.shop-title{color:#213a34}
+.category-cards{gap:16px}
+.category-card{height:138px;border-radius:16px;box-shadow:0 8px 20px #3442350b;transition:transform .22s,box-shadow .22s}
+.category-card:nth-child(5n+1){background:linear-gradient(145deg,#fff0dc,#ffe3c7)}
+.category-card:nth-child(5n+2){background:linear-gradient(145deg,#e1f2ec,#cde8db)}
+.category-card:nth-child(5n+3){background:linear-gradient(145deg,#e5edff,#d4e2ff)}
+.category-card:nth-child(5n+4){background:linear-gradient(145deg,#f2e8ff,#e7dcfa)}
+.category-card:nth-child(5n){background:linear-gradient(145deg,#ffebed,#ffd9dd)}
+.category-card:hover{transform:translateY(-5px);box-shadow:0 15px 28px #34423518}
+.category-card .cat-icon{color:#176b57}
+.product-grid{gap:24px 18px}
+.product-card{padding:9px;background:#fff;border:1px solid #eef0eb;border-radius:17px;box-shadow:0 7px 22px #293b2b0c;transition:transform .2s,box-shadow .2s,border-color .2s}
+.product-card:hover{transform:translateY(-4px);box-shadow:0 16px 32px #293b2b18;border-color:#d6e8dc}
+.product-image{height:250px;border-radius:12px;background:linear-gradient(145deg,#f5f2eb,#e9f2ec)}
+.product-card:nth-child(4n+2) .product-image{background:linear-gradient(145deg,#e8f1ff,#d9e6f8)}
+.product-card:nth-child(4n+3) .product-image{background:linear-gradient(145deg,#fff0e6,#f5dfd5)}
+.product-card:nth-child(4n) .product-image{background:linear-gradient(145deg,#f4ebff,#e9def3)}
+.product-image img{mix-blend-mode:multiply}
+.badge{left:10px;top:10px;border-radius:30px;background:#fff0dc;color:#a64e32;font-weight:700}
+.quick-add{border-radius:9px;background:#176b57;color:#fff;box-shadow:0 5px 16px #176b5730}
+.quick-add:hover{background:#124f41}
+.product-meta{padding:13px 5px 7px}
+.product-category{color:#768d83;font-weight:700}
+.product-name{font-weight:600;color:#283d36}
+.product-price{color:#176b57;font-size:14px}
+.rating{color:#db9724}
+.promo{margin-top:84px;border-radius:22px;background:linear-gradient(115deg,#e8dafa 0%,#e0edff 52%,#ffe1cf 100%);overflow:hidden}
+.promo h2{color:#27364f}
+.promo-image{border-radius:15px;box-shadow:0 12px 28px #27364f21}
+.service-strip{background:linear-gradient(90deg,#e4f2eb,#fff0dc,#e6edff);border-radius:18px;margin-left:5%;margin-right:5%}
+.service-strip b{color:#244b40}
+.footer{background:linear-gradient(180deg,#f2f7f2,#eaf1ec);border-top:1px solid #e1eae3}
+.home-catalog{margin-top:42px}
+.home-catalog-heading{padding:26px 30px;border-radius:20px;background:linear-gradient(110deg,#fff0dc 0%,#f4e7fa 52%,#e2efff 100%);margin-bottom:22px}
+.home-catalog-heading .shop-title{margin-top:8px}
+.home-category-list{border:0;padding:4px 0 18px;gap:9px}
+.home-category-list button{border-color:#e8ece7;border-radius:24px;padding:10px 17px;font-weight:600;box-shadow:0 3px 10px #293b2b08}
+.home-category-list button.active,.home-category-list button:hover{background:#176b57;border-color:#176b57;box-shadow:0 6px 15px #176b5724}
+.home-catalog .shop-toolbar{padding:9px 0}
+.home-catalog .shop-toolbar select,.shop-toolbar select{border-radius:10px;border-color:#e1e7e1}
+.filters,.account-panel,.stat,.admin-form,.admin-table{border-radius:13px;box-shadow:0 7px 22px #293b2b0a}
+.account-menu button.active,.admin-tabs button.active{background:#e4f2e9;color:#176b57}
+.status{background:#fff0dc;color:#a95836}
+.coupon-card{background:linear-gradient(135deg,#fff0dc,#f5e9fa,#e6f0ff);border-color:#eadfe8}
+@media(max-width:800px){.header{height:76px}.category-nav{gap:6px}.category-nav button{padding:9px 13px}.hero{height:380px}.section{margin-top:56px}.product-grid{gap:15px 12px}.product-card{padding:7px;border-radius:14px}.product-image{border-radius:10px}.service-strip{margin-left:4%;margin-right:4%}}
+@media(max-width:480px){.announcement{height:32px;font-size:9px}.header{height:68px}.brand{font-size:16px}.category-nav{height:46px}.hero{height:355px}.hero-box{border-radius:17px}.hero-image{border-radius:17px}.home-catalog-heading{padding:20px 18px;border-radius:16px}.home-catalog .product-card{padding:6px}.home-catalog .product-image{height:175px}.product-name{font-size:12px}.promo{border-radius:17px}.service-strip{border-radius:14px}}
+.quick-add:disabled{opacity:1;transform:none;background:#475b77;color:#fff;cursor:not-allowed;box-shadow:none}
+.badge.sold-out{background:#ef5b58;color:#fff}
