@@ -15,7 +15,9 @@ const governoratesById = new Map(egyptLocations.governorates.map(item=>[item.id,
 const districtsById = new Map(egyptLocations.districts.map(item=>[item.id,item]));
 const localitiesById = new Map(egyptLocations.localities.map(item=>[item.id,item]));
 const paymentProofDir = path.join(dataDir, 'payment-proofs');
+const returnProofDir = path.join(dataDir, 'return-proofs');
 fs.mkdirSync(paymentProofDir, { recursive: true });
+fs.mkdirSync(returnProofDir, { recursive: true });
 fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'nook-market.db'));
 db.pragma('journal_mode = WAL');
@@ -27,8 +29,13 @@ CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, user_id INTEGER REFER
 CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(id), product_id INTEGER REFERENCES products(id), name TEXT NOT NULL, price REAL NOT NULL, quantity INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), product_id INTEGER REFERENCES products(id), rating INTEGER NOT NULL, comment TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT NULL, discount REAL NOT NULL, active INTEGER NOT NULL DEFAULT 1, uses INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS return_requests (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id), order_item_id INTEGER NOT NULL REFERENCES order_items(id), user_id INTEGER NOT NULL REFERENCES users(id), reason_type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', photo_file TEXT, photo_unavailable INTEGER NOT NULL DEFAULT 0, delivery_date_unknown INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', admin_note TEXT NOT NULL DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 `);
+const returnColumns=db.prepare('PRAGMA table_info(return_requests)').all().map(column=>column.name);
+if(!returnColumns.includes('photo_unavailable')) db.exec('ALTER TABLE return_requests ADD COLUMN photo_unavailable INTEGER NOT NULL DEFAULT 0');
+if(!returnColumns.includes('delivery_date_unknown')) db.exec('ALTER TABLE return_requests ADD COLUMN delivery_date_unknown INTEGER NOT NULL DEFAULT 0');
 const orderColumns=db.prepare('PRAGMA table_info(orders)').all().map(column=>column.name);
+if(!orderColumns.includes('delivered_at')) db.exec('ALTER TABLE orders ADD COLUMN delivered_at TEXT');
 if(!orderColumns.includes('phone')) db.exec('ALTER TABLE orders ADD COLUMN phone TEXT');
 if(!orderColumns.includes('payment_proof')) db.exec('ALTER TABLE orders ADD COLUMN payment_proof TEXT');
 if(!orderColumns.includes('governorate')) db.exec('ALTER TABLE orders ADD COLUMN governorate TEXT');
@@ -152,7 +159,41 @@ app.post('/api/auth/login', (req,res) => {
 app.get('/api/me',auth,(req,res)=>res.json(req.user));
 app.get('/api/orders',auth,(req,res)=>{
   const rows = req.user.role==='admin' ? db.prepare('SELECT o.*,u.email FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC').all() : db.prepare("SELECT * FROM orders WHERE user_id=? AND status!='cancelled' ORDER BY id DESC").all(req.user.id);
-  res.json(rows.map(o=>({...o,items:db.prepare('SELECT oi.*,p.name_ar FROM order_items oi LEFT JOIN products p ON p.id=oi.product_id WHERE oi.order_id=?').all(o.id)})));
+  res.json(rows.map(o=>({...o,items:db.prepare('SELECT oi.*,p.name_ar FROM order_items oi LEFT JOIN products p ON p.id=oi.product_id WHERE oi.order_id=?').all(o.id),return_requests:db.prepare('SELECT id,order_item_id,reason_type,details,status,admin_note,created_at,updated_at,photo_file IS NOT NULL AS has_photo FROM return_requests WHERE order_id=? AND user_id=? ORDER BY id DESC').all(o.id,req.user.id)})));
+});
+app.post('/api/orders/:id/returns',auth,(req,res)=>{
+  const order=db.prepare('SELECT * FROM orders WHERE id=? AND user_id=?').get(Number(req.params.id),req.user.id);
+  if(!order)return res.status(404).json({error:'Order not found.'});
+  if(order.status!=='delivered')return res.status(400).json({error:'Return requests are available after delivery.'});
+  const {orderItemId,reasonType,details='',photo,photoUnavailable=false}=req.body||{};
+  if(!['change_of_mind','defective','wrong_item'].includes(reasonType))return res.status(400).json({error:'Choose a return reason.'});
+  const item=db.prepare('SELECT id FROM order_items WHERE id=? AND order_id=?').get(Number(orderItemId),order.id);
+  if(!item)return res.status(400).json({error:'Choose a product from this order.'});
+  const cleanDetails=typeof details==='string'?details.trim().slice(0,2000):'';
+  if(reasonType!=='change_of_mind'&&!cleanDetails)return res.status(400).json({error:'Describe the issue with the product.'});
+  const active=db.prepare("SELECT id FROM return_requests WHERE order_item_id=? AND status NOT IN ('rejected','cancelled')").get(item.id);
+  if(active)return res.status(409).json({error:'A return request for this product is already under review.'});
+  if(order.delivered_at){
+    const deliveredAt=Date.parse(order.delivered_at.replace(' ','T')+'Z');
+    const days=reasonType==='change_of_mind'?14:30;
+    if(Number.isFinite(deliveredAt)&&Date.now()>deliveredAt+days*86400000)return res.status(400).json({error:`The ${days}-day return request period has passed.`});
+  }
+  let filename=null;
+  if(photo){
+    const match=typeof photo==='string'&&photo.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
+    if(!match)return res.status(400).json({error:'Choose a PNG, JPG or WEBP image.'});
+    const image=Buffer.from(match[2],'base64');
+    if(!image.length||image.length>5*1024*1024)return res.status(400).json({error:'The image must be smaller than 5 MB.'});
+    const validImage=match[1]==='image/png'?image.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')):match[1]==='image/jpeg'?image[0]===0xff&&image[1]===0xd8&&image[2]===0xff:image.toString('ascii',0,4)==='RIFF'&&image.toString('ascii',8,12)==='WEBP';
+    if(!validImage)return res.status(400).json({error:'The selected file is not a valid image.'});
+    filename=crypto.randomUUID()+'.'+({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[match[1]]);
+    try{fs.writeFileSync(path.join(returnProofDir,filename),image,{flag:'wx'});}catch{return res.status(500).json({error:'Could not save the image.'});}
+  }
+  if(reasonType!=='change_of_mind'&&!filename&&!photoUnavailable)return res.status(400).json({error:'Attach a photo, or choose that you cannot upload one.'});
+  try{
+    const result=db.prepare('INSERT INTO return_requests(order_id,order_item_id,user_id,reason_type,details,photo_file,photo_unavailable,delivery_date_unknown) VALUES(?,?,?,?,?,?,?,?)').run(order.id,item.id,req.user.id,reasonType,cleanDetails,filename,photoUnavailable?1:0,order.delivered_at?0:1);
+    res.status(201).json({ok:true,id:Number(result.lastInsertRowid)});
+  }catch(e){if(filename)fs.rmSync(path.join(returnProofDir,filename),{force:true});res.status(400).json({error:'Could not submit the return request.'});}
 });
 app.post('/api/orders/:id/cancel',auth,(req,res)=>{
   const cancel=db.transaction(()=>{
@@ -220,6 +261,24 @@ app.get('/api/admin/orders/:id/payment-proof',auth,admin,(req,res)=>{
   if(!fs.existsSync(filepath))return res.status(404).json({error:'Payment screenshot file is missing.'});
   res.type(path.extname(filename)).sendFile(filepath);
 });
+app.get('/api/admin/returns',auth,admin,(req,res)=>{
+  res.json(db.prepare(`SELECT r.*,o.customer_name,o.phone,o.payment_method,o.delivered_at,oi.name AS product_name,oi.quantity,oi.price,u.email FROM return_requests r JOIN orders o ON o.id=r.order_id JOIN order_items oi ON oi.id=r.order_item_id JOIN users u ON u.id=r.user_id ORDER BY CASE r.status WHEN 'pending' THEN 0 WHEN 'reviewing' THEN 1 ELSE 2 END,r.id DESC`).all().map(({photo_file,...row})=>({...row,has_photo:Boolean(photo_file)})));
+});
+app.get('/api/admin/returns/:id/photo',auth,admin,(req,res)=>{
+  const request=db.prepare('SELECT photo_file FROM return_requests WHERE id=?').get(Number(req.params.id));
+  if(!request?.photo_file)return res.status(404).json({error:'Return photo not found.'});
+  const filename=path.basename(request.photo_file),filepath=path.join(returnProofDir,filename);
+  if(!fs.existsSync(filepath))return res.status(404).json({error:'Return photo file is missing.'});
+  res.type(path.extname(filename)).sendFile(filepath);
+});
+app.patch('/api/admin/returns/:id',auth,admin,(req,res)=>{
+  const allowed=['pending','reviewing','approved','rejected','received','refunded','cancelled'];
+  const {status,admin_note=''}=req.body||{};
+  if(!allowed.includes(status))return res.status(400).json({error:'Choose a valid return status.'});
+  const result=db.prepare('UPDATE return_requests SET status=?,admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status,String(admin_note).trim().slice(0,2000),Number(req.params.id));
+  if(!result.changes)return res.status(404).json({error:'Return request not found.'});
+  res.json({ok:true});
+});
 app.get('/api/coupons/:code',(req,res)=>{const c=db.prepare('SELECT * FROM coupons WHERE upper(code)=upper(?) AND active=1').get(req.params.code); c?res.json(c):res.status(404).json({error:'That code is not active.'});});
 app.post('/api/reviews',auth,(req,res)=>{const {productId,rating,comment}=req.body||{};if(!Number.isInteger(rating)||rating<1||rating>5||!comment?.trim())return res.status(400).json({error:'Add a rating and a short review.'});db.prepare('INSERT INTO reviews(user_id,product_id,rating,comment) VALUES(?,?,?,?)').run(req.user.id,productId,rating,comment.trim());res.status(201).json({ok:true});});
 app.get('/api/admin/analytics',auth,admin,(req,res)=>{
@@ -230,6 +289,6 @@ app.put('/api/admin/products/:id',auth,admin,(req,res)=>{const {name,name_ar,cat
 app.delete('/api/admin/products/:id',auth,admin,(req,res)=>{db.prepare('DELETE FROM products WHERE id=?').run(req.params.id);res.json({ok:true});});
 app.post('/api/admin/categories',auth,admin,(req,res)=>{const {name,name_ar,icon='✳'}=req.body;try{const slug=name.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');db.prepare('INSERT INTO categories(name,slug,icon,name_ar) VALUES(?,?,?,?)').run(name,slug,icon,name_ar||'');res.json({ok:true});}catch(e){res.status(400).json({error:'Category name already exists.'});}});
 app.post('/api/admin/coupons',auth,admin,(req,res)=>{const {code,discount}=req.body;try{db.prepare('INSERT INTO coupons(code,discount) VALUES(?,?)').run(code.toUpperCase(),discount);res.json({ok:true});}catch(e){res.status(400).json({error:'Coupon code already exists.'});}});
-app.patch('/api/admin/orders/:id',auth,admin,(req,res)=>{const allowed=['pending','confirmed','shipped','delivered','cancelled'];if(!allowed.includes(req.body.status))return res.status(400).json({error:'Invalid order status.'});try{db.transaction(()=>{const order=db.prepare('SELECT * FROM orders WHERE id=?').get(req.params.id);if(!order)throw new Error('Order not found.');if(order.status==='cancelled'&&req.body.status!=='cancelled')throw new Error('Cancelled orders cannot be reopened.');if(req.body.status==='cancelled'&&order.status!=='cancelled'){const items=db.prepare('SELECT product_id,quantity FROM order_items WHERE order_id=?').all(order.id);for(const item of items)db.prepare('UPDATE products SET stock=stock+? WHERE id=?').run(item.quantity,item.product_id);}db.prepare('UPDATE orders SET status=? WHERE id=?').run(req.body.status,req.params.id);})();res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
+app.patch('/api/admin/orders/:id',auth,admin,(req,res)=>{const allowed=['pending','confirmed','shipped','delivered','cancelled'];if(!allowed.includes(req.body.status))return res.status(400).json({error:'Invalid order status.'});try{db.transaction(()=>{const order=db.prepare('SELECT * FROM orders WHERE id=?').get(req.params.id);if(!order)throw new Error('Order not found.');if(order.status==='cancelled'&&req.body.status!=='cancelled')throw new Error('Cancelled orders cannot be reopened.');if(req.body.status==='cancelled'&&order.status!=='cancelled'){const items=db.prepare('SELECT product_id,quantity FROM order_items WHERE order_id=?').all(order.id);for(const item of items)db.prepare('UPDATE products SET stock=stock+? WHERE id=?').run(item.quantity,item.product_id);}db.prepare("UPDATE orders SET status=?,delivered_at=CASE WHEN ?='delivered' AND status!='delivered' THEN CURRENT_TIMESTAMP WHEN ?!='delivered' THEN NULL ELSE delivered_at END WHERE id=?").run(req.body.status,req.body.status,req.body.status,req.params.id);})();res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 app.listen(PORT,()=>console.log(`Nook Market is ready at http://localhost:${PORT}`));
