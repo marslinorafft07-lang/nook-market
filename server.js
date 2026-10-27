@@ -122,7 +122,13 @@ app.use(express.json({limit: '8mb'}));
 app.use(express.static(path.join(__dirname, 'public')));
 const auth = (req,res,next) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i,'');
-  try { req.user = jwt.verify(token, SECRET); next(); } catch { res.status(401).json({error:'Please sign in to continue.'}); }
+  let claims;
+  try { claims=jwt.verify(token,SECRET); } catch { return res.status(401).json({error:'Please sign in to continue.'}); }
+  const findByEmail=()=>claims.email?db.prepare('SELECT id,name,email,role FROM users WHERE lower(email)=lower(?)').get(claims.email):null;
+  const current=(claims.id&&claims.email?db.prepare('SELECT id,name,email,role FROM users WHERE id=? AND lower(email)=lower(?)').get(claims.id,claims.email):null)||findByEmail();
+  if(!current)return res.status(401).json({error:'Your session is out of date. Please sign in again.'});
+  req.user=current;
+  next();
 };
 const admin = (req,res,next) => req.user?.role === 'admin' ? next() : res.status(403).json({error:'Admin access required.'});
 const productsQuery = `SELECT p.*, c.name category, c.name_ar category_ar, c.slug category_slug, COALESCE(ROUND(AVG(r.rating),1),0) rating, COUNT(r.id) review_count FROM products p JOIN categories c ON c.id=p.category_id LEFT JOIN reviews r ON r.product_id=p.id`;
@@ -252,7 +258,7 @@ app.post('/api/orders',auth,(req,res)=>{
     for(const {p,qty} of selected){db.prepare('INSERT INTO order_items(order_id,product_id,name,price,quantity) VALUES(?,?,?,?,?)').run(o.lastInsertRowid,p.id,p.name,p.price,qty);db.prepare('UPDATE products SET stock=stock-? WHERE id=?').run(qty,p.id);}
     return Number(o.lastInsertRowid);
   });
-  try {res.status(201).json(db.prepare('SELECT * FROM orders WHERE id=?').get(create()));} catch(e){if(proofFile)fs.rmSync(path.join(paymentProofDir,proofFile),{force:true});res.status(400).json({error:e.message});}
+  try {res.status(201).json(db.prepare('SELECT * FROM orders WHERE id=?').get(create()));} catch(e){if(proofFile)fs.rmSync(path.join(paymentProofDir,proofFile),{force:true});const error=e.message==='FOREIGN KEY constraint failed'?'Your account or one of the items in your bag has changed. Refresh the page, sign in again, and try once more.':e.message;res.status(400).json({error});}
 });
 app.get('/api/admin/orders/:id/payment-proof',auth,admin,(req,res)=>{
   const order=db.prepare('SELECT payment_proof FROM orders WHERE id=?').get(Number(req.params.id));
