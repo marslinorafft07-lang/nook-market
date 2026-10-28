@@ -139,3 +139,29 @@ html[dir="rtl"] .product-detail-copy{direction:rtl;text-align:right}
   .product-detail-copy{width:100%;min-width:0;min-height:auto;overflow:visible;padding:22px clamp(16px,5vw,30px) 38px;text-align:start}
   .product-modal-close{position:fixed;top:12px;right:12px}
 }
+
+/* Use the full mobile viewport consistently in both language directions. */
+@media(max-width:760px){
+  html,body{width:100%;max-width:100%;overflow-x:clip}
+  #app{width:100%;min-width:0;max-width:100%;overflow-x:clip}
+  .announcement,.header,.category-nav{width:100%;max-width:100%;margin-inline:0}
+  .header{min-width:0;padding-inline:12px;gap:8px}
+  .header>*{min-width:0}
+  .search{min-width:0}
+  .category-nav{padding-inline:12px}
+  .hero,.section,.home-catalog,.shop-layout,.account-shell,.admin-shell{
+    width:100%;min-width:0;max-width:100%;margin-inline:0
+  }
+  .hero{padding-inline:12px}
+  .section,.home-catalog,.shop-layout,.account-shell,.admin-shell{padding-inline:12px}
+  .home-catalog{margin-top:24px}
+  .home-catalog-heading{width:100%;min-width:0}
+  .home-category-list{width:100%;min-width:0;max-width:100%}
+  .shop-toolbar{min-width:0;gap:10px}
+  .shop-toolbar>*{min-width:0}
+  .product-grid,.home-catalog .product-grid{width:100%;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .product-card{width:100%;min-width:0}
+  .product-image{width:100%;min-width:0}
+  .service-strip{margin-inline:0}
+  .footer{width:100%;max-width:100%;margin-inline:0}
+}
