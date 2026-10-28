@@ -104,6 +104,8 @@ body{background:linear-gradient(180deg,#fffdf9 0,#fff 470px);color:var(--ink)}
 .product-detail-price del{font-size:14px;color:var(--muted);font-weight:400}
 .product-detail-description{white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-height:1.9;color:#5f6b64;margin:24px 0;max-width:65ch}
 .product-detail-copy .detail-stock{margin:20px 0;color:var(--green);font-weight:600}
+.product-video-link{display:inline-flex;align-items:center;gap:8px;margin:0 0 18px;color:var(--green);font-weight:650;text-decoration:none}
+.product-video-link:hover{text-decoration:underline}
 .product-detail-add{width:100%;min-height:50px}
 .product-detail-copy .product-reviews{margin-top:32px;padding-top:22px}
 .product-detail-copy .product-reviews h2{font:500 22px var(--serif)}

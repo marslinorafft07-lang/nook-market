@@ -47,6 +47,7 @@ if(!orderColumns.includes('shipping_fee')) db.exec('ALTER TABLE orders ADD COLUM
 const productColumns=db.prepare('PRAGMA table_info(products)').all().map(column=>column.name);
 if(!productColumns.includes('name_ar')) db.exec('ALTER TABLE products ADD COLUMN name_ar TEXT');
 if(!productColumns.includes('description_ar')) db.exec('ALTER TABLE products ADD COLUMN description_ar TEXT');
+if(!productColumns.includes('video_url')) db.exec('ALTER TABLE products ADD COLUMN video_url TEXT');
 const categoryColumns=db.prepare('PRAGMA table_info(categories)').all().map(column=>column.name);
 if(!categoryColumns.includes('name_ar')) db.exec('ALTER TABLE categories ADD COLUMN name_ar TEXT');
 const categories = [
@@ -115,6 +116,58 @@ const insertSourcedProduct=db.prepare('INSERT INTO products(name,name_ar,categor
 const sourcedProductExists=db.prepare('SELECT 1 FROM products WHERE name=?');
 const seedSourcedProducts=db.transaction(()=>{for(const [name,nameAr,slug,price,description,descriptionAr,image] of sourcedProducts){if(!sourcedProductExists.get(name))insertSourcedProduct.run(name,nameAr,catId(slug),price,null,description,descriptionAr,image,0,0);}});
 seedSourcedProducts();
+// Add verified supplier gallery photos to existing catalogue rows. Keep each item's
+// original lead photo and merge the new URLs only once so deploys stay idempotent.
+const productGalleryUpdates = [
+  ['Mini Printer Thermal Paper Label Stickers; Colored Self-Adhesive Thermal Printing Paper; Inkless Printing, Suitable for Photo And Image Printing, an Ideal Choice for Home, School, And Office Use - Self-Adhesive Thermal Label Paper',[
+    'https://f.nooncdn.com/p/pzsku/Z6E9A72C126F9F54372F6Z/45/_/1771728258/64ea6074-912f-4444-916f-c456887008ad.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z6E9A72C126F9F54372F6Z/45/_/1771728257/e5710bff-1d29-4c1a-ae01-bea0e176c336.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z6E9A72C126F9F54372F6Z/45/_/1771728257/74f80350-179c-4945-b135-1239a5843d05.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z6E9A72C126F9F54372F6Z/45/_/1771728257/2d46dec5-fbf7-48ba-80c5-7c2baff765a8.jpg'
+  ],'https://www.lazada.com.ph/videodetail/?video_id=8000005998323'],
+  ['1 8-In-1 USB C Hub with Audio Jack | Compatible with Tablets, USB Powered, 5V Operating Voltage',[
+    'https://f.nooncdn.com/p/pzsku/ZC25DBF364D8A0566F8A1Z/45/1765192336/c2018064-efd3-4c0e-b107-dc656ff10611.jpg',
+    'https://f.nooncdn.com/p/pzsku/ZC25DBF364D8A0566F8A1Z/45/1765192336/fecbd909-04b8-46db-9ce0-d2c514e12d02.jpg',
+    'https://f.nooncdn.com/p/pzsku/ZC25DBF364D8A0566F8A1Z/45/1765192336/1adb4c4a-11ae-4ca1-bcfa-f8e54a7ba68c.jpg',
+    'https://f.nooncdn.com/p/pzsku/ZC25DBF364D8A0566F8A1Z/45/1765192336/79b386dc-8209-40b6-85c0-16dccc054bad.jpg'
+  ],null],
+  ['START TWS 03F Wireless Earbuds',[
+    'https://f.nooncdn.com/p/pzsku/Z7A6CB204B92CFA8747C9Z/45/1751300730/75962996-4c38-4653-bb12-84267e6f2106.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z7A6CB204B92CFA8747C9Z/45/1751300801/0456c8b0-6603-41ea-babb-9ba778f40e81.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z7A6CB204B92CFA8747C9Z/45/1751300826/fa7debf4-fc70-4c29-b9d2-a7f848a814da.jpg'
+  ],null],
+  ['START ST-256 Over-Ear Headphones',[
+    'https://f.nooncdn.com/p/75d7bbf8c6265e799f6b9c8968e9df95%7Cpzsku/Z44826961C28423833E21Z/45/1770856379/a3776244-1563-4c2d-a07c-1fcbf789a28e.jpg',
+    'https://f.nooncdn.com/p/75d7bbf8c6265e799f6b9c8968e9df95%7Cpzsku/Z44826961C28423833E21Z/45/1770856432/599be9c4-a24e-415f-9d33-175371f5c408.jpg'
+  ],null],
+  ['Rechargeable Wireless LED Table Lamp',[
+    'https://f.nooncdn.com/p/pzsku/Z3B8EB12E69BC9C250851Z/45/_/1772613168/b86daadd-7c4e-4478-8c20-d738746b3e65.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3B8EB12E69BC9C250851Z/45/_/1772613168/d8901b8c-aa06-454a-98eb-3d6680d9dd17.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3B8EB12E69BC9C250851Z/45/_/1772613168/b70fc45b-d4b3-4be9-a0c3-248384a7b30e.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3B8EB12E69BC9C250851Z/45/_/1772613168/fe2e073c-5bd3-462a-a216-dee228e3081b.jpg'
+  ],'https://pinlighting.com/products/waterproof-rechargeable-wireless-led-table-lamp'],
+  ['KITCHENOO 8-Piece Drawer Organizer Set',[
+    'https://f.nooncdn.com/p/pzsku/Z3C55884925E074CF509EZ/45/1760562036/919e2702-9bab-47b8-aa63-64df2d9c8d59.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3C55884925E074CF509EZ/45/1760562041/5d1f3f45-5074-4159-abc7-4793950a3ad2.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3C55884925E074CF509EZ/45/1760562046/d868542d-505f-4dd4-8c01-707333f061f0.jpg',
+    'https://f.nooncdn.com/p/pzsku/Z3C55884925E074CF509EZ/45/1760562056/d451f623-08c1-47bd-99ee-b4d9dc7e6b59.jpg'
+  ],null]
+];
+const mergeProductGallery=db.prepare('UPDATE products SET image=? WHERE name=?');
+for(const [name,urls,videoUrl] of productGalleryUpdates){
+  const product=db.prepare('SELECT image FROM products WHERE name=?').get(name);
+  if(!product)continue;
+  const originalImages=String(product.image||'').split('|').map(url=>url.trim()).filter(Boolean);
+  // The original seed used a lamp photo and description for the thermal paper row.
+  // Correct that mismatch and place the verified product photo first.
+  const isThermalPaper=name.startsWith('Mini Printer Thermal Paper');
+  const images=[...new Set(isThermalPaper?[...urls,...originalImages]:[...originalImages,...urls])].slice(0,8);
+  mergeProductGallery.run(images.join('|'),name);
+  if(isThermalPaper)db.prepare('UPDATE products SET description=?,description_ar=? WHERE name=?').run(
+    'Adhesive thermal paper refill rolls for compatible mini printers. Prints photos and labels without ink; check your printer model and roll size before ordering.',
+    'لفائف ورق حراري لاصق بديلة للطابعات الصغيرة المتوافقة. تطبع الصور والملصقات دون حبر؛ يُرجى التأكد من توافق موديل الطابعة ومقاس اللفة قبل الطلب.',name);
+  if(videoUrl)db.prepare('UPDATE products SET video_url=? WHERE name=?').run(videoUrl,name);
+}
 db.prepare('INSERT OR IGNORE INTO coupons(code,discount) VALUES(?,?)').run('WELCOME10',10)
 if (!db.prepare('SELECT 1 FROM users WHERE email=?').get('admin@nook.local')) {
   db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)').run('Nook Admin','admin@nook.local',bcrypt.hashSync('Nk7$mPx92!vQeR',10),'admin');
@@ -314,14 +367,16 @@ function prepareProductImages(image,uploads){
   }catch(error){for(const photo of saved)fs.rmSync(path.join(productImageDir,photo.filename),{force:true});throw error;}
 }
 function saveProduct(req,res,productId=null){
-  const {name,name_ar,category_id,price,compare_price,description,description_ar,stock}=req.body||{};
+  const {name,name_ar,category_id,price,compare_price,description,description_ar,stock,video_url}=req.body||{};
   if(!name?.trim()||!name_ar?.trim()||!description?.trim()||!description_ar?.trim())return res.status(400).json({error:'Enter the product name and description in English and Arabic.'});
   let prepared;
   try{
+    const video=String(video_url||'').trim();
+    if(video&&!(/^(https:\/\/(www\.)?(youtube\.com|youtu\.be|vimeo\.com|lazada\.com\.ph|pinlighting\.com)\/|\/videos\/)/i.test(video)))throw new Error('Use a YouTube, Vimeo or product-video link.');
     prepared=prepareProductImages(req.body.image,req.body.images||[]);
     if(!prepared.image)return res.status(400).json({error:'Add at least one product photo.'});
-    if(productId){db.prepare('UPDATE products SET name=?,name_ar=?,category_id=?,price=?,compare_price=?,description=?,description_ar=?,image=?,stock=? WHERE id=?').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock,productId);res.json({ok:true});}
-    else{const result=db.prepare('INSERT INTO products(name,name_ar,category_id,price,compare_price,description,description_ar,image,stock) VALUES(?,?,?,?,?,?,?,?,?)').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock);res.status(201).json({id:result.lastInsertRowid});}
+    if(productId){db.prepare('UPDATE products SET name=?,name_ar=?,category_id=?,price=?,compare_price=?,description=?,description_ar=?,image=?,stock=?,video_url=? WHERE id=?').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock,video||null,productId);res.json({ok:true});}
+    else{const result=db.prepare('INSERT INTO products(name,name_ar,category_id,price,compare_price,description,description_ar,image,stock,video_url) VALUES(?,?,?,?,?,?,?,?,?,?)').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock,video||null);res.status(201).json({id:result.lastInsertRowid});}
   }catch(error){if(prepared?.saved)for(const photo of prepared.saved)fs.rmSync(path.join(productImageDir,photo.filename),{force:true});res.status(400).json({error:error.message==='Check all product fields and try again.'?error.message:error.message||'Check all product fields and try again.'});}
 }
 app.post('/api/admin/products',auth,admin,(req,res)=>saveProduct(req,res));
