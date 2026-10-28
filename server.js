@@ -16,8 +16,10 @@ const districtsById = new Map(egyptLocations.districts.map(item=>[item.id,item])
 const localitiesById = new Map(egyptLocations.localities.map(item=>[item.id,item]));
 const paymentProofDir = path.join(dataDir, 'payment-proofs');
 const returnProofDir = path.join(dataDir, 'return-proofs');
+const productImageDir = path.join(dataDir, 'product-images');
 fs.mkdirSync(paymentProofDir, { recursive: true });
 fs.mkdirSync(returnProofDir, { recursive: true });
+fs.mkdirSync(productImageDir, { recursive: true });
 fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'nook-market.db'));
 db.pragma('journal_mode = WAL');
@@ -118,8 +120,9 @@ if (!db.prepare('SELECT 1 FROM users WHERE email=?').get('admin@nook.local')) {
   db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)').run('Nook Admin','admin@nook.local',bcrypt.hashSync('Nk7$mPx92!vQeR',10),'admin');
 }
 
-app.use(express.json({limit: '8mb'}));
+app.use(express.json({limit: '24mb'}));
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/product-images/:filename',(req,res)=>{const filename=path.basename(req.params.filename);if(!/^[0-9a-f-]+\.(?:jpg|png|webp)$/.test(filename))return res.sendStatus(404);res.sendFile(path.join(productImageDir,filename),error=>{if(error&&!res.headersSent)res.sendStatus(404)});});
 const auth = (req,res,next) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i,'');
   let claims;
@@ -290,8 +293,39 @@ app.post('/api/reviews',auth,(req,res)=>{const {productId,rating,comment}=req.bo
 app.get('/api/admin/analytics',auth,admin,(req,res)=>{
   res.json({revenue:db.prepare("SELECT COALESCE(SUM(total),0) n FROM orders WHERE status!='cancelled'").get().n,orders:db.prepare('SELECT COUNT(*) n FROM orders').get().n,products:db.prepare('SELECT COUNT(*) n FROM products').get().n,customers:db.prepare("SELECT COUNT(*) n FROM users WHERE role='customer'").get().n,recent:db.prepare('SELECT o.*,u.name FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 6').all()});
 });
-app.post('/api/admin/products',auth,admin,(req,res)=>{const {name,name_ar,category_id,price,compare_price,description,description_ar,image,stock}=req.body;if(!name?.trim()||!name_ar?.trim()||!description?.trim()||!description_ar?.trim())return res.status(400).json({error:'Enter the product name and description in English and Arabic.'});try{const result=db.prepare('INSERT INTO products(name,name_ar,category_id,price,compare_price,description,description_ar,image,stock) VALUES(?,?,?,?,?,?,?,?,?)').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),image,stock);res.status(201).json({id:result.lastInsertRowid});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
-app.put('/api/admin/products/:id',auth,admin,(req,res)=>{const {name,name_ar,category_id,price,compare_price,description,description_ar,image,stock}=req.body;if(!name?.trim()||!name_ar?.trim()||!description?.trim()||!description_ar?.trim())return res.status(400).json({error:'Enter the product name and description in English and Arabic.'});try{db.prepare('UPDATE products SET name=?,name_ar=?,category_id=?,price=?,compare_price=?,description=?,description_ar=?,image=?,stock=? WHERE id=?').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),image,stock,req.params.id);res.json({ok:true});}catch(e){res.status(400).json({error:'Check all product fields and try again.'});}});
+function prepareProductImages(image,uploads){
+  const existing=String(image||'').split('|').map(url=>url.trim()).filter(Boolean);
+  if(existing.some(url=>!(/^(https?:\/\/|\/)/i.test(url))))throw new Error('Enter valid image links or choose photos from your device.');
+  if(!Array.isArray(uploads)||existing.length+uploads.length>8)throw new Error('A product can have up to 8 photos.');
+  const saved=[];
+  try{
+    for(const dataUrl of uploads){
+      const match=typeof dataUrl==='string'&&dataUrl.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+      if(!match)throw new Error('Choose JPG, PNG or WEBP photos.');
+      const buffer=Buffer.from(match[2],'base64');
+      if(!buffer.length||buffer.length>2*1024*1024)throw new Error('Each photo must be smaller than 2 MB after preparation.');
+      const format=match[1],valid=format==='jpeg'?buffer[0]===0xff&&buffer[1]===0xd8&&buffer.at(-2)===0xff&&buffer.at(-1)===0xd9:format==='png'?buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):buffer.toString('ascii',0,4)==='RIFF'&&buffer.toString('ascii',8,12)==='WEBP';
+      if(!valid)throw new Error('One of the selected files is not a valid image.');
+      const ext=format==='jpeg'?'jpg':format,filename=`${crypto.randomUUID()}.${ext}`;
+      fs.writeFileSync(path.join(productImageDir,filename),buffer,{flag:'wx'});
+      saved.push({filename,url:`/product-images/${filename}`});
+    }
+    return {image:[...existing,...saved.map(photo=>photo.url)].join('|'),saved};
+  }catch(error){for(const photo of saved)fs.rmSync(path.join(productImageDir,photo.filename),{force:true});throw error;}
+}
+function saveProduct(req,res,productId=null){
+  const {name,name_ar,category_id,price,compare_price,description,description_ar,stock}=req.body||{};
+  if(!name?.trim()||!name_ar?.trim()||!description?.trim()||!description_ar?.trim())return res.status(400).json({error:'Enter the product name and description in English and Arabic.'});
+  let prepared;
+  try{
+    prepared=prepareProductImages(req.body.image,req.body.images||[]);
+    if(!prepared.image)return res.status(400).json({error:'Add at least one product photo.'});
+    if(productId){db.prepare('UPDATE products SET name=?,name_ar=?,category_id=?,price=?,compare_price=?,description=?,description_ar=?,image=?,stock=? WHERE id=?').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock,productId);res.json({ok:true});}
+    else{const result=db.prepare('INSERT INTO products(name,name_ar,category_id,price,compare_price,description,description_ar,image,stock) VALUES(?,?,?,?,?,?,?,?,?)').run(name.trim(),name_ar.trim(),category_id,price,compare_price||null,description.trim(),description_ar.trim(),prepared.image,stock);res.status(201).json({id:result.lastInsertRowid});}
+  }catch(error){if(prepared?.saved)for(const photo of prepared.saved)fs.rmSync(path.join(productImageDir,photo.filename),{force:true});res.status(400).json({error:error.message==='Check all product fields and try again.'?error.message:error.message||'Check all product fields and try again.'});}
+}
+app.post('/api/admin/products',auth,admin,(req,res)=>saveProduct(req,res));
+app.put('/api/admin/products/:id',auth,admin,(req,res)=>saveProduct(req,res,req.params.id));
 app.delete('/api/admin/products/:id',auth,admin,(req,res)=>{db.prepare('DELETE FROM products WHERE id=?').run(req.params.id);res.json({ok:true});});
 app.post('/api/admin/categories',auth,admin,(req,res)=>{const {name,name_ar,icon='✳'}=req.body;try{const slug=name.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');db.prepare('INSERT INTO categories(name,slug,icon,name_ar) VALUES(?,?,?,?)').run(name,slug,icon,name_ar||'');res.json({ok:true});}catch(e){res.status(400).json({error:'Category name already exists.'});}});
 app.post('/api/admin/coupons',auth,admin,(req,res)=>{const {code,discount}=req.body;try{db.prepare('INSERT INTO coupons(code,discount) VALUES(?,?)').run(code.toUpperCase(),discount);res.json({ok:true});}catch(e){res.status(400).json({error:'Coupon code already exists.'});}});
