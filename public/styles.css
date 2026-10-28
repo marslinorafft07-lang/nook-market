@@ -121,3 +121,21 @@ body{background:linear-gradient(180deg,#fffdf9 0,#fff 470px);color:var(--ink)}
 .product-photo-item img{width:100%;height:100%;object-fit:cover}
 .product-photo-item button{position:absolute;top:4px;right:4px;width:24px;height:24px;border:0;border-radius:50%;background:#18251f;color:#fff;font-size:18px;line-height:1;cursor:pointer}
 @media(max-width:480px){.admin-form .product-photo-tools{grid-column:auto}.product-photo-picker{min-height:54px}.product-photo-item{flex-basis:68px;width:68px;height:68px}}
+
+/* Keep product details centered and mirror the image/text columns for Arabic */
+.product-modal{position:fixed;inset:0;width:100vw;height:100dvh;overflow-x:hidden}
+.product-modal-card{width:100%;min-width:0}
+.product-detail-layout{min-width:0}
+.product-detail-copy{direction:ltr;text-align:left}
+html[dir="rtl"] .product-detail-layout{direction:rtl}
+html[dir="rtl"] .product-detail-copy{direction:rtl;text-align:right}
+.product-detail-copy,.product-detail-copy>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:760px){
+  .product-modal{overflow-y:auto;overscroll-behavior:contain}
+  .product-modal-card{height:auto;min-height:100dvh;overflow:visible}
+  .product-detail-layout{height:auto;min-height:100dvh;width:100%;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(34dvh,42dvh) auto}
+  .product-gallery{width:100%;min-width:0;padding:14px 14px 8px;grid-template-rows:minmax(0,1fr) auto}
+  .product-main-image{width:100%;min-width:0}
+  .product-detail-copy{width:100%;min-width:0;min-height:auto;overflow:visible;padding:22px clamp(16px,5vw,30px) 38px;text-align:start}
+  .product-modal-close{position:fixed;top:12px;right:12px}
+}
